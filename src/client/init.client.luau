@@ -1,0 +1,5 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local receiveReplication = require(ReplicatedStorage.shared.modules.receiveReplication)
+local start = require(ReplicatedStorage.shared.modules.start)
+local world, state = start(ReplicatedStorage.shared.modules.systems)
+receiveReplication(world, state)

@@ -1,0 +1,18 @@
+[package]
+name = "scope/name"
+version = "0.0.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+private = true
+
+[dependencies]
+matter = "matter-ecs/matter@0.8.5"
+matter-hooks = "matter-ecs/matter-hooks@0.2.1"
+plasma = "matter-ecs/plasma@0.4.4"
+rewire = "sayhisam1/rewire@0.3.0"
+
+charm = "littensy/charm@0.10.0"
+react = "jsdotlua/react@17.2.1"
+react-roblox = "jsdotlua/react-roblox@17.2.1"
+react-spring = "chriscerie/react-spring@2.0.0"
+react-charm = "littensy/react-charm@0.3.0"
