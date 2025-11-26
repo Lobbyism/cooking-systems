@@ -1,4 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
+local createRemotes = require(ServerScriptService.server.modules.createRemotes)
 local start = require(ReplicatedStorage.shared.modules.start)
+createRemotes()
 start(ServerScriptService.server.modules.systems)

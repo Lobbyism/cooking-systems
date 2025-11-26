@@ -3,7 +3,8 @@ local components = require(ReplicatedStorage.shared.modules.components)
 local componentReplicationMap = {
 	components = {
 		[components.Player] = {},
-		[components.Model] = {}
+		[components.Model] = {},
+		[components.StationCut] = {}
 	}
 }
 for component, componentReplication in componentReplicationMap.components do
