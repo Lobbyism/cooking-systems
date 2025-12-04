@@ -1,5 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local components = require(ReplicatedStorage.shared.modules.components)
+local components = require(ReplicatedStorage.shared.modules.matter.components)
 local RemoteEvent = ReplicatedStorage.remotes:WaitForChild("matterEvent")
 local function setupReplication(world, state)
 	local function debugPrint(...)

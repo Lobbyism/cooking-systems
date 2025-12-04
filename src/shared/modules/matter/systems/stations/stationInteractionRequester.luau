@@ -2,7 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local Matter = require(ReplicatedStorage.packages.matter)
-local components = require(ReplicatedStorage.shared.modules.components)
+local components = require(ReplicatedStorage.shared.modules.matter.components)
 local stationConstants = require(ReplicatedStorage.shared.modules.constants.stations)
 local stations = require(ReplicatedStorage.shared.modules.stations)
 local stationEvent = ReplicatedStorage.remotes.stationEvent
@@ -40,7 +40,7 @@ return function(world)
 	if not hoveredStationModel then return end
 	for _, input, gameProcessedEvent in Matter.useEvent(UserInputService, UserInputService.InputBegan) do
 		if gameProcessedEvent then continue end
-		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then continue end
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then continue end
 		stationEvent:FireServer({ stationModel = hoveredStationModel })
 	end
 end

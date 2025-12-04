@@ -64,8 +64,7 @@ local function start(container)
 	-- Begin running our systems
 
 	loop:begin({
-		default = RunService.Heartbeat,
-		Stepped = RunService.Stepped,
+		default = RunService.Heartbeat
 	})
 
 	if RunService:IsClient() then

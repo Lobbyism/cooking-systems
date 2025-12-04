@@ -4,7 +4,12 @@ local COMPONENT_NAMES = {
 	"Player",
 	"Model",
 	"StationCut",
-	"UsedBy"
+	"StationStorage",
+	"UsedBy",
+	"Item",
+	"HasItem",
+	"Camera",
+	"CameraAnimation"
 }
 local components = {}
 for _, componentName in COMPONENT_NAMES do

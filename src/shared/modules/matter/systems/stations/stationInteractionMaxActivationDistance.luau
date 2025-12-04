@@ -1,6 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local components = require(ReplicatedStorage.shared.modules.components)
+local components = require(ReplicatedStorage.shared.modules.matter.components)
 local stations = require(ReplicatedStorage.shared.modules.stations)
 return function(world)
 	for modelId, model in world:query(components.Model) do
