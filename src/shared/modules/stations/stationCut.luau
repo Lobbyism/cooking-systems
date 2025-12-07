@@ -3,6 +3,8 @@ local UserInputService = game:GetService("UserInputService")
 local Matter = require(ReplicatedStorage.packages.matter)
 local items = require(ReplicatedStorage.shared.modules.items)
 local itemConstants = require(ReplicatedStorage.shared.modules.constants.items)
+local remotePayloads = require(ReplicatedStorage.shared.modules.constants.remotePayloads)
+local stationCutEvent = ReplicatedStorage.remotes.stationCutEvent
 local stationCut = {}
 local RAYCAST_DISTANCE = 10
 local function raycastOppositeRays(raycastOrigin, raycastDirection, raycastParams)
@@ -16,14 +18,14 @@ local function raycastOppositeRays(raycastOrigin, raycastDirection, raycastParam
 		raycastParams
 	)
 end
-local function raycastIngredientLaterally(targetKnifeCFrame, raycastParams)
+local function raycastIngredientLaterally(targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset, raycastParams)
 	local topLeftRaycastResult, topRightRaycastResult = raycastOppositeRays(
-		(targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * CFrame.new(0, 0.124992371, 1.125, 1, 0, 0, 0, 1, 0, 0, 0, 1)).Position,
+		(targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * topAttachmentOffset).Position,
 		targetKnifeCFrame.LookVector,
 		raycastParams
 	)
 	local bottomLeftRaycastResult, bottomRightRaycastResult = raycastOppositeRays(
-		(targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * CFrame.new(0, -0.375007629, 1.125, 1, 0, 0, 0, 1, 0, 0, 0, 1)).Position,
+		(targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * bottomAttachmentOffset).Position,
 		targetKnifeCFrame.LookVector,
 		raycastParams
 	)
@@ -45,7 +47,7 @@ local function getFurthestDistanceAlongStationLateralVector(distances)
 	end
 	return furthestDistance
 end
-function stationCut.applyVerticalKnifeConstraint(world, station, targetKnifeCFrame)
+function stationCut.applyVerticalKnifeConstraint(world, station, targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset)
 	local raycastParams = RaycastParams.new()
 	raycastParams.FilterType = Enum.RaycastFilterType.Include
 	local stationCutBoard = station.model.model:FindFirstChild("Board")
@@ -60,9 +62,7 @@ function stationCut.applyVerticalKnifeConstraint(world, station, targetKnifeCFra
 	local boardCFrame = stationCutBoard:GetPivot()
 	local boardUp = boardCFrame.UpVector
 	local boardPoint = raycastResult.Position
-	local bottomAttachmentPosition =
-		(targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0)
-			* CFrame.new(0, -0.375007629, 1.125)).Position
+	local bottomAttachmentPosition = (targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * bottomAttachmentOffset).Position
 	local bottomAttachmentPositionToBoard = bottomAttachmentPosition - boardPoint
 	local bottomAttachmentHeightRelativeToBoard = bottomAttachmentPositionToBoard:Dot(boardUp)
 	if bottomAttachmentHeightRelativeToBoard < 0 then
@@ -74,18 +74,23 @@ function stationCut.applyVerticalKnifeConstraint(world, station, targetKnifeCFra
 			})
 			world:insert(station.id, station.usedBy)
 		end
-		if not station.usedBy.chopped then
-			station.usedBy = station.usedBy:patch({
-				chopped = true
-			})
-			world:insert(station.id, station.usedBy)
-		end
 		correctedPosition = Vector3.new(
 			station.usedBy.knifeLockedXOnBoard,
 			correctedPosition.Y,
 			correctedPosition.Z
 		)
-		return CFrame.new(correctedPosition) * (targetKnifeCFrame - targetKnifeCFrame.Position)
+		targetKnifeCFrame = CFrame.new(correctedPosition) * (targetKnifeCFrame - targetKnifeCFrame.Position)
+		if not station.usedBy.chopped then
+			stationCutEvent:FireServer({
+				type = remotePayloads.stationCut.cut,
+				topAttachmentPosition = (targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * topAttachmentOffset).Position,
+				bottomAttachmentPosition = (targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * bottomAttachmentOffset).Position,
+			})
+			station.usedBy = station.usedBy:patch({
+				chopped = true
+			})
+			world:insert(station.id, station.usedBy)
+		end
 	elseif station.usedBy.knifeLockedXOnBoard then
 		world:insert(station.id, station.usedBy:patch({
 			knifeLockedXOnBoard = Matter.None
@@ -93,12 +98,12 @@ function stationCut.applyVerticalKnifeConstraint(world, station, targetKnifeCFra
 	end
 	return targetKnifeCFrame
 end
-function stationCut.applyLateralKnifeConstraint(world, station, targetKnifeCFrame)
+function stationCut.applyLateralKnifeConstraint(world, station, targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset)
 	local raycastParams = RaycastParams.new()
 	raycastParams.FilterType = Enum.RaycastFilterType.Include
 	raycastParams:AddToFilter(station.itemModel.model)
 	local stationLateralVector = station.model.model:GetPivot().RightVector
-	local topLeftRaycastResult, bottomLeftRaycastResult, topRightRaycastResult, bottomRightRaycastResult = raycastIngredientLaterally(targetKnifeCFrame, raycastParams)
+	local topLeftRaycastResult, bottomLeftRaycastResult, topRightRaycastResult, bottomRightRaycastResult = raycastIngredientLaterally(targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset, raycastParams)
 	local distancesLeft = {distanceAlongStationLateralVector(stationLateralVector, station, topLeftRaycastResult), distanceAlongStationLateralVector(stationLateralVector, station, bottomLeftRaycastResult)}
 	local distancesRight =  {distanceAlongStationLateralVector(stationLateralVector, station, topRightRaycastResult), distanceAlongStationLateralVector(stationLateralVector, station, bottomRightRaycastResult)}
 	local leftmostDistance, rightmostDistance = getFurthestDistanceAlongStationLateralVector(distancesLeft), getFurthestDistanceAlongStationLateralVector(distancesRight)
@@ -116,7 +121,7 @@ function stationCut.applyLateralKnifeConstraint(world, station, targetKnifeCFram
 	end
 	return targetKnifeCFrame
 end
-function stationCut.constraintTargetKnifeCFrame(world, station, targetKnifeCFrame)
+function stationCut.constraintTargetKnifeCFrame(world, station, targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset)
 	local stationId, _, stationUsedBy = station.id, station.itemModel, station.usedBy
 	local _, fakeKnife = stationUsedBy.fakeArm, stationUsedBy.fakeKnife
 	if stationUsedBy.knifeEnteredFromAbove then
@@ -130,7 +135,7 @@ function stationCut.constraintTargetKnifeCFrame(world, station, targetKnifeCFram
 			targetKnifeCFrame.Position.X,
 			targetKnifeCFrame.Position.Y,
 			stationUsedBy.knifeLockedZ
-		))
+		), topAttachmentOffset, bottomAttachmentOffset)
 	else
 		if stationUsedBy.knifeLockedZ then
 			world:insert(stationId, stationUsedBy:patch({
@@ -139,7 +144,7 @@ function stationCut.constraintTargetKnifeCFrame(world, station, targetKnifeCFram
 		end
 	end
 	if stationUsedBy.knifeWasAboveIngredientLastFrame then return targetKnifeCFrame end
-	return stationCut.applyLateralKnifeConstraint(world, station, targetKnifeCFrame)
+	return stationCut.applyLateralKnifeConstraint(world, station, targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset)
 end
 function stationCut.updateKnifeAndArmPosition(world, playerModel, station)
 	local mouseLocation = UserInputService:GetMouseLocation()
@@ -151,7 +156,18 @@ function stationCut.updateKnifeAndArmPosition(world, playerModel, station)
 	if math.abs(denominator) < 1e-4 then return end
 	local t = 1.5 / denominator
 	if t < 0 then return end
-	local knifeTargetCFrame = stationCut.constraintTargetKnifeCFrame(world, station, CFrame.new(mouseViewportRay.Origin + mouseViewportRay.Direction * t))
+	local topAttachmentOffset, bottomAttachmentOffset
+	local knifeModel = station.usedBy.fakeKnife
+	for _, attachment in knifeModel:QueryDescendants("Attachment") do
+		if attachment.Parent.Name ~= "Blade" then continue end
+		if attachment.Name == "TopAttachment" then
+			topAttachmentOffset = knifeModel:GetPivot():ToObjectSpace(attachment.WorldCFrame)
+		elseif attachment.Name == "BottomAttachment" then
+			bottomAttachmentOffset = knifeModel:GetPivot():ToObjectSpace(attachment.WorldCFrame)
+		end
+	end
+	if not topAttachmentOffset or not bottomAttachmentOffset then return end
+	local knifeTargetCFrame = stationCut.constraintTargetKnifeCFrame(world, station, CFrame.new(mouseViewportRay.Origin + mouseViewportRay.Direction * t), topAttachmentOffset, bottomAttachmentOffset)
 	local stationUsedBy = station.usedBy
 	local fakeArm, fakeKnife = stationUsedBy.fakeArm, stationUsedBy.fakeKnife
 	fakeKnife:PivotTo(knifeTargetCFrame * CFrame.Angles(0, math.pi / 2, 0))

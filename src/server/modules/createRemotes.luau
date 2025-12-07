@@ -1,5 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local REMOTE_EVENT_NAMES = {"station"}
+local REMOTE_EVENT_NAMES = {"station", "stationCut"}
 local REMOTE_FUNCTION_NAMES = {}
 local hasCreatedRemotes = false
 return function()
