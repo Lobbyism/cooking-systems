@@ -5,49 +5,113 @@ local items = require(ReplicatedStorage.shared.modules.items)
 local itemConstants = require(ReplicatedStorage.shared.modules.constants.items)
 local remotePayloads = require(ReplicatedStorage.shared.modules.constants.remotePayloads)
 local stationCutEvent = ReplicatedStorage.remotes.stationCutEvent
-local stationCut = {}
 local RAYCAST_DISTANCE = 10
-local function raycastOppositeRays(raycastOrigin, raycastDirection, raycastParams)
-	return workspace:Raycast(
-		raycastOrigin + raycastDirection * RAYCAST_DISTANCE / 2,
-		-raycastDirection * RAYCAST_DISTANCE,
-		raycastParams
-	), workspace:Raycast(
-		raycastOrigin - raycastDirection * RAYCAST_DISTANCE / 2,
-		raycastDirection * RAYCAST_DISTANCE,
-		raycastParams
-	)
-end
-local function raycastIngredientLaterally(targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset, raycastParams)
-	local topLeftRaycastResult, topRightRaycastResult = raycastOppositeRays(
-		(targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * topAttachmentOffset).Position,
-		targetKnifeCFrame.LookVector,
-		raycastParams
-	)
-	local bottomLeftRaycastResult, bottomRightRaycastResult = raycastOppositeRays(
-		(targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * bottomAttachmentOffset).Position,
-		targetKnifeCFrame.LookVector,
-		raycastParams
-	)
-	return topLeftRaycastResult, bottomLeftRaycastResult, topRightRaycastResult, bottomRightRaycastResult
-end
-local function distanceAlongStationLateralVector(stationLateralVector, station, raycastResult)
-	if not raycastResult then return nil end
-	return (raycastResult.Position - station.model.model:GetPivot().Position):Dot(stationLateralVector)
-end
-local function getFurthestDistanceAlongStationLateralVector(distances)
-	local furthestDistance
-	for _, distance in distances do
-		if not distance then continue end
-		if not furthestDistance then
-			furthestDistance = distance
-		else
-			furthestDistance = math.max(furthestDistance, distance)
+local FAKE_KNIFE_WIDTH = 0.025
+local GAP_EPSILON = 0.25
+local stationCut = {}
+local function applyLateralKnifeConstraint(world, station, targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset)
+	local function getFurthestDistanceAlongStationLateralVector(distances)
+		local furthestDistance
+		for _, distance in distances do
+			if not distance then continue end
+			if not furthestDistance then
+				furthestDistance = distance
+			else
+				furthestDistance = math.max(furthestDistance, distance)
+			end
+		end
+		return furthestDistance
+	end
+	local function distanceAlongStationLateralVector(stationLateralVector, station, raycastResult)
+		if not raycastResult then return nil end
+		return (raycastResult.Position - station.model.model:GetPivot().Position):Dot(stationLateralVector)
+	end
+	local function raycastIngredientLaterally(targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset, raycastParams)
+	local function raycastOppositeRays(raycastOrigin, raycastDirection)
+		return workspace:Raycast(
+				raycastOrigin + raycastDirection * RAYCAST_DISTANCE / 2,
+				-raycastDirection * RAYCAST_DISTANCE,
+				raycastParams
+			), workspace:Raycast(
+				raycastOrigin - raycastDirection * RAYCAST_DISTANCE / 2,
+				raycastDirection * RAYCAST_DISTANCE,
+				raycastParams
+			)
+		end
+		local topLeftRaycastResult, topRightRaycastResult = raycastOppositeRays(
+			(targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * topAttachmentOffset).Position,
+			targetKnifeCFrame.LookVector
+		)
+		local bottomLeftRaycastResult, bottomRightRaycastResult = raycastOppositeRays(
+			(targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * bottomAttachmentOffset).Position,
+			targetKnifeCFrame.LookVector
+		)
+		return topLeftRaycastResult, bottomLeftRaycastResult, topRightRaycastResult, bottomRightRaycastResult
+	end
+	local function computeItemModelBounds(station)
+		if #station.itemRegions == 0 then return nil, nil end
+		local stationPivot = station.model.model:GetPivot()
+		local stationRightVector = stationPivot.RightVector
+		local globalLeftStationLateral = math.huge
+		local globalRightStationLateral = -math.huge
+		for _, itemRegion in station.itemRegions do
+			local regionCFrame, regionSize = itemRegion:GetBoundingBox()
+			local stationToRegionProjection = (regionCFrame.Position - stationPivot.Position):Dot(stationRightVector)
+			local regionExtentsToStationProjection =
+				math.abs(stationRightVector:Dot(regionCFrame.RightVector)) * (regionSize.X / 2)
+				+ math.abs(stationRightVector:Dot(regionCFrame.UpVector)) * (regionSize.Y / 2)
+				+ math.abs(stationRightVector:Dot(regionCFrame.LookVector)) * (regionSize.Z / 2)
+			local regionLeftStationLateral = stationToRegionProjection - (regionExtentsToStationProjection + FAKE_KNIFE_WIDTH)
+			local regionRightStationLateral = stationToRegionProjection + (regionExtentsToStationProjection + FAKE_KNIFE_WIDTH)
+			globalLeftStationLateral = math.min(globalLeftStationLateral, regionLeftStationLateral)
+			globalRightStationLateral = math.max(globalRightStationLateral, regionRightStationLateral)
+		end
+		return globalLeftStationLateral, globalRightStationLateral
+	end
+	local stationPivot = station.model.model:GetPivot()
+	local stationLateralVector = stationPivot.RightVector
+	local knifeLateralCoordinate = (targetKnifeCFrame.Position - stationPivot.Position):Dot(stationLateralVector)
+	for _, itemRegion in station.itemRegions do
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterType = Enum.RaycastFilterType.Include
+		raycastParams:AddToFilter(itemRegion)
+		local topLeftRaycastResult, bottomLeftRaycastResult, topRightRaycastResult, bottomRightRaycastResult = raycastIngredientLaterally(targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset, raycastParams)
+		local distancesLeft = {distanceAlongStationLateralVector(stationLateralVector, station, topLeftRaycastResult), distanceAlongStationLateralVector(stationLateralVector, station, bottomLeftRaycastResult)}
+		local distancesRight =  {distanceAlongStationLateralVector(stationLateralVector, station, topRightRaycastResult), distanceAlongStationLateralVector(stationLateralVector, station, bottomRightRaycastResult)}
+		local leftmostDistance, rightmostDistance = getFurthestDistanceAlongStationLateralVector(distancesLeft), getFurthestDistanceAlongStationLateralVector(distancesRight)
+		if not leftmostDistance or not rightmostDistance then continue end
+		local minimumLateralCoordinate, maximumLateralCoordinate = math.min(leftmostDistance, rightmostDistance), math.max(leftmostDistance, rightmostDistance)
+		if knifeLateralCoordinate > minimumLateralCoordinate and knifeLateralCoordinate < maximumLateralCoordinate then
+			if station.usedBy.knifeIsAboveIngredient and not station.usedBy.knifeEnteredFromAbove then
+				world:insert(station.id, station.usedBy:patch({ knifeEnteredFromAbove = true }))
+				return targetKnifeCFrame
+			end
+			local itemLeftBound, itemRightBound = computeItemModelBounds(station)
+			if not itemLeftBound or not itemRightBound then return targetKnifeCFrame end
+			local snapLateral = if math.abs(knifeLateralCoordinate - itemLeftBound) < math.abs(knifeLateralCoordinate - itemRightBound) then itemLeftBound else itemRightBound
+			local stationToKnife = targetKnifeCFrame.Position - stationPivot.Position
+			local distanceParallel = stationLateralVector * knifeLateralCoordinate
+			local distancePerpendicular = stationToKnife - distanceParallel
+			local snappedPosition = stationPivot.Position + stationLateralVector * snapLateral + distancePerpendicular
+			return CFrame.new(snappedPosition) * (targetKnifeCFrame - targetKnifeCFrame.Position)
 		end
 	end
-	return furthestDistance
+	local closestSurfaces = stationCut.computeClosestSurfacesFromKnife(station, (targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * bottomAttachmentOffset).Position)
+	if closestSurfaces.minimumLeftDistance and closestSurfaces.minimumRightDistance and (closestSurfaces.minimumLeftDistance + closestSurfaces.minimumRightDistance) < GAP_EPSILON then
+		local itemLeftBound, itemRightBound = computeItemModelBounds(station)
+		if not itemLeftBound or not itemRightBound then
+			return targetKnifeCFrame
+		end
+		local snapLateral = if math.abs(knifeLateralCoordinate - itemLeftBound) < math.abs(knifeLateralCoordinate - itemRightBound) then itemLeftBound else itemRightBound
+		local stationToKnife = targetKnifeCFrame.Position - stationPivot.Position
+		local distanceParallel = stationLateralVector * knifeLateralCoordinate
+		local distancePerpendicular = stationToKnife - distanceParallel
+		local snappedPosition = stationPivot.Position + stationLateralVector * snapLateral + distancePerpendicular
+		return CFrame.new(snappedPosition) * (targetKnifeCFrame - targetKnifeCFrame.Position)
+	end
+	return targetKnifeCFrame
 end
-function stationCut.applyVerticalKnifeConstraint(world, station, targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset)
+local function applyVerticalKnifeConstraint(world, station, targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset)
 	local raycastParams = RaycastParams.new()
 	raycastParams.FilterType = Enum.RaycastFilterType.Include
 	local stationCutBoard = station.model.model:FindFirstChild("Board")
@@ -81,13 +145,15 @@ function stationCut.applyVerticalKnifeConstraint(world, station, targetKnifeCFra
 		)
 		targetKnifeCFrame = CFrame.new(correctedPosition) * (targetKnifeCFrame - targetKnifeCFrame.Position)
 		if not station.usedBy.chopped then
+			station.usedBy = station.usedBy:patch({
+				chopped = true,
+				clientCutId = (if station.usedBy.clientCutId then station.usedBy.clientCutId else 0) + 1
+			})
 			stationCutEvent:FireServer({
 				type = remotePayloads.stationCut.cut,
 				topAttachmentPosition = (targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * topAttachmentOffset).Position,
 				bottomAttachmentPosition = (targetKnifeCFrame * CFrame.Angles(0, math.pi / 2, 0) * bottomAttachmentOffset).Position,
-			})
-			station.usedBy = station.usedBy:patch({
-				chopped = true
+				clientCutId = station.usedBy.clientCutId
 			})
 			world:insert(station.id, station.usedBy)
 		end
@@ -98,31 +164,8 @@ function stationCut.applyVerticalKnifeConstraint(world, station, targetKnifeCFra
 	end
 	return targetKnifeCFrame
 end
-function stationCut.applyLateralKnifeConstraint(world, station, targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset)
-	local raycastParams = RaycastParams.new()
-	raycastParams.FilterType = Enum.RaycastFilterType.Include
-	raycastParams:AddToFilter(station.itemModel.model)
-	local stationLateralVector = station.model.model:GetPivot().RightVector
-	local topLeftRaycastResult, bottomLeftRaycastResult, topRightRaycastResult, bottomRightRaycastResult = raycastIngredientLaterally(targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset, raycastParams)
-	local distancesLeft = {distanceAlongStationLateralVector(stationLateralVector, station, topLeftRaycastResult), distanceAlongStationLateralVector(stationLateralVector, station, bottomLeftRaycastResult)}
-	local distancesRight =  {distanceAlongStationLateralVector(stationLateralVector, station, topRightRaycastResult), distanceAlongStationLateralVector(stationLateralVector, station, bottomRightRaycastResult)}
-	local leftmostDistance, rightmostDistance = getFurthestDistanceAlongStationLateralVector(distancesLeft), getFurthestDistanceAlongStationLateralVector(distancesRight)
-	if not leftmostDistance or not rightmostDistance then return targetKnifeCFrame end
-	local knifeLateralCoordinate = (targetKnifeCFrame.Position - station.model.model:GetPivot().Position):Dot(stationLateralVector)
-	local minimumLateralCoordinate, maximumLateralCoordinate = math.min(leftmostDistance, rightmostDistance), math.max(leftmostDistance, rightmostDistance)
-	if knifeLateralCoordinate > minimumLateralCoordinate and knifeLateralCoordinate < maximumLateralCoordinate then
-		local distanceToLeft, distanceToRight = math.abs(knifeLateralCoordinate - minimumLateralCoordinate), math.abs(knifeLateralCoordinate - maximumLateralCoordinate)
-		local snapCoordinate = if distanceToLeft < distanceToRight then minimumLateralCoordinate else maximumLateralCoordinate
-		local stationToKnifeOffset = targetKnifeCFrame.Position - station.model.model:GetPivot().Position
-		local distanceParallelToStationLateralAxis = stationLateralVector * knifeLateralCoordinate
-		local distancePerpendicularToStationLateralAxis = stationToKnifeOffset - distanceParallelToStationLateralAxis
-		local snappedPosition = station.model.model:GetPivot().Position + stationLateralVector * snapCoordinate + distancePerpendicularToStationLateralAxis
-		targetKnifeCFrame = CFrame.new(snappedPosition) * (targetKnifeCFrame - targetKnifeCFrame.Position)
-	end
-	return targetKnifeCFrame
-end
-function stationCut.constraintTargetKnifeCFrame(world, station, targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset)
-	local stationId, _, stationUsedBy = station.id, station.itemModel, station.usedBy
+local function constraintTargetKnifeCFrame(world, station, targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset)
+	local stationId, stationUsedBy = station.id, station.usedBy
 	local _, fakeKnife = stationUsedBy.fakeArm, stationUsedBy.fakeKnife
 	if stationUsedBy.knifeEnteredFromAbove then
 		if not stationUsedBy.knifeLockedZ then
@@ -131,7 +174,7 @@ function stationCut.constraintTargetKnifeCFrame(world, station, targetKnifeCFram
 			})
 			world:insert(stationId, stationUsedBy)
 		end
-		return stationCut.applyVerticalKnifeConstraint(world, station, CFrame.new(
+		return applyVerticalKnifeConstraint(world, station, CFrame.new(
 			targetKnifeCFrame.Position.X,
 			targetKnifeCFrame.Position.Y,
 			stationUsedBy.knifeLockedZ
@@ -143,8 +186,7 @@ function stationCut.constraintTargetKnifeCFrame(world, station, targetKnifeCFram
 			}))
 		end
 	end
-	if stationUsedBy.knifeWasAboveIngredientLastFrame then return targetKnifeCFrame end
-	return stationCut.applyLateralKnifeConstraint(world, station, targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset)
+	return applyLateralKnifeConstraint(world, station, targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset)
 end
 function stationCut.updateKnifeAndArmPosition(world, playerModel, station)
 	local mouseLocation = UserInputService:GetMouseLocation()
@@ -167,7 +209,7 @@ function stationCut.updateKnifeAndArmPosition(world, playerModel, station)
 		end
 	end
 	if not topAttachmentOffset or not bottomAttachmentOffset then return end
-	local knifeTargetCFrame = stationCut.constraintTargetKnifeCFrame(world, station, CFrame.new(mouseViewportRay.Origin + mouseViewportRay.Direction * t), topAttachmentOffset, bottomAttachmentOffset)
+	local knifeTargetCFrame = constraintTargetKnifeCFrame(world, station, CFrame.new(mouseViewportRay.Origin + mouseViewportRay.Direction * t), topAttachmentOffset, bottomAttachmentOffset)
 	local stationUsedBy = station.usedBy
 	local fakeArm, fakeKnife = stationUsedBy.fakeArm, stationUsedBy.fakeKnife
 	fakeKnife:PivotTo(knifeTargetCFrame * CFrame.Angles(0, math.pi / 2, 0))
@@ -180,5 +222,50 @@ function stationCut.updateKnifeAndArmPosition(world, playerModel, station)
 		fakeArm.CFrame.UpVector,
 		fakeArm.CFrame.LookVector
 	) * CFrame.new(0, 1, 0))
+end
+local function raycastIngredientLeftAndRight(raycastOrigin, stationRightVector, raycastParams)
+	local function raycastIngredientSurfaceRay(raycastDirection)
+		return workspace:Raycast(
+			raycastOrigin,
+			raycastDirection * RAYCAST_DISTANCE,
+			raycastParams
+		)
+	end
+	return raycastIngredientSurfaceRay(-stationRightVector), raycastIngredientSurfaceRay(stationRightVector)
+end
+function stationCut.computeClosestSurfacesFromKnife(station, knifePosition)
+	local stationPivot = station.model.model:GetPivot()
+	local stationRightVector = stationPivot.RightVector
+	local knifeProjection = (knifePosition - stationPivot.Position):Dot(stationRightVector)
+	local minimumLeftDistance, minimumRightDistance
+	local closestLeftSurfacePosition, closestRightSurfacePosition
+	for _, itemRegion in station.usedBy.itemRegions do
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterType = Enum.RaycastFilterType.Include
+		raycastParams:AddToFilter(itemRegion)
+		local leftRaycastResult, rightRaycastResult = raycastIngredientLeftAndRight(knifePosition, stationRightVector, raycastParams)
+		if leftRaycastResult then
+			local hitProjection = (leftRaycastResult.Position - stationPivot.Position):Dot(stationRightVector)
+			local hitProjectionDistance = knifeProjection - hitProjection
+			if hitProjectionDistance >= 0 and (not minimumLeftDistance or hitProjectionDistance < minimumLeftDistance) then
+				minimumLeftDistance = hitProjectionDistance
+				closestLeftSurfacePosition = leftRaycastResult.Position
+			end
+		end
+		if rightRaycastResult then
+			local hitProjection = (rightRaycastResult.Position - stationPivot.Position):Dot(stationRightVector)
+			local hitProjectionDistance = hitProjection - knifeProjection
+			if hitProjectionDistance >= 0 and (not minimumRightDistance or hitProjectionDistance < minimumRightDistance) then
+				minimumRightDistance = hitProjectionDistance
+				closestRightSurfacePosition = rightRaycastResult.Position
+			end
+		end
+	end
+	return {
+		minimumLeftDistance = minimumLeftDistance,
+		minimumRightDistance = minimumRightDistance,
+		leftSurfacePosition = closestLeftSurfacePosition,
+		rightSurfacePosition = closestRightSurfacePosition
+	}
 end
 return stationCut

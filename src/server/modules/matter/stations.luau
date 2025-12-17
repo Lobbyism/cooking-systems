@@ -33,6 +33,7 @@ function station.canPlayerUseStation(world, stationId, playerId)
 	return stationUsageRules[stationComponent](world, stationId, playerId)
 end
 function station.swapItems(world, entity1, entity2)
+	if not world:contains(entity1) or not world:contains(entity2) then return end
 	local hasItem1, hasItem2 = world:remove(entity1, components.HasItem), world:remove(entity2, components.HasItem)
 	local tempHasItem = hasItem1
 	hasItem1 = hasItem2

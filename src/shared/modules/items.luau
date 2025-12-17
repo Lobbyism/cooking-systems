@@ -38,6 +38,7 @@ local itemTree = {
 					model = ReplicatedStorage.models.items.knife,
 					grip = {
 						offsets = {
+							station = CFrame.new(),
 							rightHand = CFrame.new(0, -0.987184763, -0.453267574, -1, 0, 0, 0, 1, 0, 0, 0, -1)
 						}
 					}

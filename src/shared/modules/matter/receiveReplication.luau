@@ -19,13 +19,21 @@ local function setupReplication(world, state)
 				debugPrint(string.format("Despawn %ds%d", clientEntityId, serverEntityId))
 				continue
 			end
+			
 			local componentsToInsert = {}
 			local componentsToRemove = {}
 			local insertNames = {}
 			local removeNames = {}
 			for name, container in componentMap do
 				if container.data then
-					table.insert(componentsToInsert, components[name](container.data))
+					local component = components[name](container.data)
+					if clientEntityId then
+						local _component = world:get(clientEntityId, components[name])
+						if _component then
+							component = _component:patch(container.data)
+						end
+					end
+					table.insert(componentsToInsert, component)
 					table.insert(insertNames, name)
 				else
 					table.insert(componentsToRemove, components[name])
