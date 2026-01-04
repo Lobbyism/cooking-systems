@@ -4,7 +4,7 @@ local Matter = require(ReplicatedStorage.packages.matter)
 local remotePayloads = require(ReplicatedStorage.shared.modules.constants.remotePayloads)
 local components = require(ReplicatedStorage.shared.modules.matter.components)
 local stationCutEvent = ReplicatedStorage.remotes.stationCutEvent
-local MIN_ITEM_REGION_THICKNESS = 0.05
+local MIN_ITEM_REGION_THICKNESS = 0.055
 local function computeItemRegionThicknessAlongAxis(itemRegion, axis)
 	local itemRegionCFrame, itemRegionSize = itemRegion:GetBoundingBox()
 	return 2 * (
