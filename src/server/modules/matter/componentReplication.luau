@@ -1,9 +1,13 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local components = require(ReplicatedStorage.shared.modules.components)
+local components = require(ReplicatedStorage.shared.modules.matter.components)
 local componentReplicationMap = {
 	components = {
 		[components.Player] = {},
-		[components.Model] = {}
+		[components.Model] = {},
+		[components.StationCut] = {},
+		[components.StationStorage] = {},
+		[components.UsedBy] = {},
+		[components.HasItem] = {}
 	}
 }
 for component, componentReplication in componentReplicationMap.components do

@@ -123,6 +123,11 @@ version = "0.4.4"
 dependencies = []
 
 [[package]]
+name = "outofbears/react-flow"
+version = "0.2.0"
+dependencies = [["Promise", "evaera/promise@4.0.0"], ["React", "jsdotlua/react@17.2.1"], ["ReactRoblox", "jsdotlua/react-roblox@17.2.1"]]
+
+[[package]]
 name = "roblox/testez"
 version = "0.4.1"
 dependencies = []
@@ -135,4 +140,4 @@ dependencies = []
 [[package]]
 name = "scope/name"
 version = "0.0.0"
-dependencies = [["charm", "littensy/charm@0.10.0"], ["matter", "matter-ecs/matter@0.8.5"], ["matter-hooks", "matter-ecs/matter-hooks@0.2.1"], ["plasma", "matter-ecs/plasma@0.4.4"], ["react", "jsdotlua/react@17.2.1"], ["react-charm", "littensy/react-charm@0.3.0"], ["react-roblox", "jsdotlua/react-roblox@17.2.1"], ["react-spring", "chriscerie/react-spring@2.0.0"], ["rewire", "sayhisam1/rewire@0.3.0"]]
+dependencies = [["charm", "littensy/charm@0.10.0"], ["matter", "matter-ecs/matter@0.8.5"], ["matter-hooks", "matter-ecs/matter-hooks@0.2.1"], ["plasma", "matter-ecs/plasma@0.4.4"], ["react", "jsdotlua/react@17.2.1"], ["react-charm", "littensy/react-charm@0.3.0"], ["react-flow", "outofbears/react-flow@0.2.0"], ["react-roblox", "jsdotlua/react-roblox@17.2.1"], ["react-spring", "chriscerie/react-spring@2.0.0"], ["rewire", "sayhisam1/rewire@0.3.0"]]
