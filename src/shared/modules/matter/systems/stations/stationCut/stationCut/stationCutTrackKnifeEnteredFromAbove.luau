@@ -22,12 +22,24 @@ return function(world, state)
 					model = stationModel,
 					usedBy = stationUsedBy
 				}, stationUsedBy.fakeKnife.Blade.BottomAttachment.WorldPosition)
-				if not closestSurfaces.leftSurfacePosition and not closestSurfaces.rightSurfacePosition then
-					world:insert(stationId, stationUsedBy:patch({
-						knifeEnteredFromAbove = false,
-						chopped = false
-					}))
+				if #stationUsedBy.itemRegions == 1 then
+					local stationModelUpVector = stationModel.model:GetPivot().UpVector
+					local itemRegion = stationUsedBy.itemRegions[1]
+					local itemRegionCFrame, itemRegionSize = itemRegion:GetBoundingBox()
+					local itemModelHalfHeight =
+						math.abs((itemRegionCFrame.RightVector * itemRegionSize.X / 2):Dot(stationModelUpVector))
+						+ math.abs((itemRegionCFrame.UpVector * itemRegionSize.Y / 2):Dot(stationModelUpVector))
+						+ math.abs((itemRegionCFrame.LookVector * itemRegionSize.Z / 2):Dot(stationModelUpVector))
+					local itemModelHeight = (itemRegionCFrame.Position - stationModel.model:GetPivot().Position):Dot(stationModelUpVector) + itemModelHalfHeight
+					local bladeBottomHeight = (stationUsedBy.fakeKnife.Blade.BottomAttachment.WorldPosition - stationModel.model:GetPivot().Position):Dot(stationModelUpVector)
+					if bladeBottomHeight <= itemModelHeight then continue end
+				elseif closestSurfaces.leftSurfacePosition or closestSurfaces.rightSurfacePosition then
+					continue
 				end
+				world:insert(stationId, stationUsedBy:patch({
+					knifeEnteredFromAbove = false,
+					chopped = false
+				}))
 			else
 				local raycastParams = RaycastParams.new()
 				raycastParams.FilterType = Enum.RaycastFilterType.Include
