@@ -118,8 +118,8 @@ local function applyVerticalKnifeConstraint(world, station, targetKnifeCFrame, t
 	if not stationCutBoard then return targetKnifeCFrame end
 	raycastParams:AddToFilter(stationCutBoard)
 	local raycastResult = workspace:Raycast(
-		targetKnifeCFrame.Position + 0.5 * Vector3.yAxis * RAYCAST_DISTANCE,
-		-Vector3.yAxis * RAYCAST_DISTANCE,
+		station.model.model:GetPivot().Position + Vector3.yAxis * RAYCAST_DISTANCE,
+		-Vector3.yAxis * 2 * RAYCAST_DISTANCE,
 		raycastParams
 	)
 	if not raycastResult then return targetKnifeCFrame end
@@ -174,17 +174,21 @@ local function constraintTargetKnifeCFrame(world, station, targetKnifeCFrame, to
 			})
 			world:insert(stationId, stationUsedBy)
 		end
-		return applyVerticalKnifeConstraint(world, station, CFrame.new(
-			targetKnifeCFrame.Position.X,
-			targetKnifeCFrame.Position.Y,
-			stationUsedBy.knifeLockedZ
-		), topAttachmentOffset, bottomAttachmentOffset)
 	else
 		if stationUsedBy.knifeLockedZ then
-			world:insert(stationId, stationUsedBy:patch({
+			stationUsedBy = stationUsedBy:patch({
 				knifeLockedZ = Matter.None
-			}))
+			})
+			world:insert(stationId, stationUsedBy)
 		end
+	end
+	targetKnifeCFrame = applyVerticalKnifeConstraint(world, station, CFrame.new(
+		targetKnifeCFrame.Position.X,
+		targetKnifeCFrame.Position.Y,
+		if stationUsedBy.knifeLockedZ then stationUsedBy.knifeLockedZ else targetKnifeCFrame.Position.Z
+	), topAttachmentOffset, bottomAttachmentOffset)
+	if stationUsedBy.knifeEnteredFromAbove or stationUsedBy.knifeLockedZ then
+		return targetKnifeCFrame
 	end
 	return applyLateralKnifeConstraint(world, station, targetKnifeCFrame, topAttachmentOffset, bottomAttachmentOffset)
 end
