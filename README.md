@@ -6,4 +6,4 @@ This system is implemented using **Entity Component System (ECS)** architecture,
 
 ## Demo
 
-![Chopping demo](https://customer-7l5k59u6ed0eg423.cloudflarestream.com/7416c864cc8bf750f121ff03841ddd68/thumbnails/thumbnail.jpg?height=600)
+[![Chopping demonstration](image.png)](https://customer-7l5k59u6ed0eg423.cloudflarestream.com/7416c864cc8bf750f121ff03841ddd68/iframe?poster=https%3A%2F%2Fcustomer-7l5k59u6ed0eg423.cloudflarestream.com%2F7416c864cc8bf750f121ff03841ddd68%2Fthumbnails%2Fthumbnail.jpg%3Ftime%3D%26height%3D600)
